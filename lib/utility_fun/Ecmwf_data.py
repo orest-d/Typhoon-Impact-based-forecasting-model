@@ -19,6 +19,7 @@ from pybufrkit.renderer import FlatTextRenderer
 from sys import platform
 from io import StringIO
 import numpy as np
+from pathlib import Path
  
 import pybufrkit
 decoder = pybufrkit.decoder.Decoder()
@@ -296,7 +297,9 @@ def ecmwf_data_process(Input_folder,filepatern):
 
 
 #%%
-Input_folder='C:/Users/ATeklesadik/OneDrive - Rode Kruis/Documents/documents/Typhoon-Impact-based-forecasting-model/temp/'
+#Input_folder='C:/Users/ATeklesadik/OneDrive - Rode Kruis/Documents/documents/Typhoon-Impact-based-forecasting-model/temp/'
+Input_folder=str(Path(__file__).parent.parent / "temp")
+print("INPUT FOLDER in Ecmwf_data: ", Input_folder)
 #date_object ='%04d%02d%02d%02d'%(int(
 [line.split()[-1] for line in StringIO(text_data) if line[6:17].upper=="004001 YEAR" ]
 path_ecmwf=os.path.join(Input_folder,'ecmwf/')

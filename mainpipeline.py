@@ -22,7 +22,8 @@ import shutil
 from os.path import relpath
 import re
 import zipfile
-from os.path import relpath
+import os.path
+from os.path import relpath, abspath
 from os import listdir
 from os.path import isfile, join
 from pybufrkit.decoder import Decoder
@@ -35,18 +36,21 @@ import subprocess
 from geopandas.tools import sjoin
 import geopandas as gpd
 import xarray as xr
+from pathlib import Path
+
 decoder = Decoder()
-path='C:/Users/ATeklesadik/OneDrive - Rode Kruis/Documents/documents/Typhoon-Impact-based-forecasting-model/'
+##path='C:/Users/ATeklesadik/OneDrive - Rode Kruis/Documents/documents/Typhoon-Impact-based-forecasting-model/'
 ##Path='home/fbf/'
+path = str(Path(__file__).parent.absolute())  # os.path.split(abspath(__file__))[0]
 
 #%%
-sys.path.insert(0, path+'lib')
+sys.path.insert(0, os.path.join(path,'lib'))
 os.chdir(path)
 
 from settings import fTP_LOGIN, fTP_PASSWORD, uCL_USERNAME, uCL_PASSWORD
 #from settings import *
 from secrets import *
-from variables import *
+#from variables import *
  
 from climada.hazard import Centroids, TropCyclone,TCTracks
 from climada.hazard.tc_tracks import estimate_roci,estimate_rmw
@@ -106,7 +110,10 @@ cent.check()
 cent.plot()
 ####
 
-admin=gpd.read_file("C:/Users/ATeklesadik/OneDrive - Rode Kruis/Documents/documents/Typhoon-Impact-based-forecasting-model/data-raw/phl_admin3_simpl2.shp")
+admin_shp_path = str((Path(path) / "data-raw" / "phl_admin3_simpl2.shp") .absolute())
+print (f"Admin shp path: {admin_shp_path}")
+#admin=gpd.read_file("C:/Users/ATeklesadik/OneDrive - Rode Kruis/Documents/documents/Typhoon-Impact-based-forecasting-model/data-raw/phl_admin3_simpl2.shp")
+admin=gpd.read_file(admin_shp_path)
 df = pd.DataFrame(data=cent.coord)
 df["centroid_id"] = "id"+(df.index).astype(str)  
 centroid_idx=df["centroid_id"].values

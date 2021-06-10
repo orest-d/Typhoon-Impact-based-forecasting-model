@@ -1,3 +1,5 @@
+from utility_fun.download_utils import download_file, convert_rain_files
+
 def download_rainfall_nomads(Input_folder,path,Alternative_data_point):
     """
     download rainfall 
@@ -27,10 +29,12 @@ def download_rainfall_nomads(Input_folder,path,Alternative_data_point):
             print(rain_file)
             #output_file= os.path.join(relpath(rainfall_path,path),rain_file.split('/')[-1]+'.grib2')
             output_file= os.path.join(rainfall_path,rain_file.split('/')[-1]+'.grib2')
-            batch_ex="wget -O %s %s" %(output_file,rain_file)
-            os.chdir(path)
-            print(batch_ex)
-            p = subprocess.call(batch_ex ,cwd=path)
+            #batch_ex="wget -O %s %s" %(output_file,rain_file)
+            #os.chdir(path)
+            #print(batch_ex)
+            #p = subprocess.call(batch_ex ,cwd=path)
+            download_file(rain_file, output_file)
+
     except:
         base_url=listFD(url2, ext='')[-1]
         base_url_hour=base_url+'prcp_bc_gb2/geprcp.t%sz.pgrb2a.0p50.bc_' % base_url.split('/')[-2]
@@ -41,19 +45,21 @@ def download_rainfall_nomads(Input_folder,path,Alternative_data_point):
         for rain_file in rainfall_24:
             output_file= os.path.join(rainfall_path,rain_file.split('/')[-1]+'.grib2')
             #output_file= os.path.join(relpath(rainfall_path,path),rain_file.split('/')[-1]+'.grib2')
-            batch_ex="wget -O %s %s" %(output_file,rain_file)
-            os.chdir(path)
-            print(batch_ex)
-            p = subprocess.call(batch_ex ,cwd=path)
+            #batch_ex="wget -O %s %s" %(output_file,rain_file)
+            #os.chdir(path)
+            #print(batch_ex)
+            #p = subprocess.call(batch_ex ,cwd=path)
+            download_file(rain_file, output_file)
         
-    rain_files = [f for f in listdir(rainfall_path) if isfile(join(rainfall_path, f))]
-    os.chdir(rainfall_path)
-    pattern1='.pgrb2a.0p50.bc_06h'
-    pattern2='.pgrb2a.0p50.bc_24h'
-    for files in rain_files:
-        if pattern2 in files:
-            p = subprocess.call('wgrib2 %s -append -netcdf rainfall_24.nc'%files ,cwd=rainfall_path)
-            os.remove(files)
-        if pattern1 in files:
-            p = subprocess.call('wgrib2 %s -append -netcdf rainfall_06.nc'%files ,cwd=rainfall_path)
-            os.remove(files)
+#    rain_files = [f for f in listdir(rainfall_path) if isfile(join(rainfall_path, f))]
+#    os.chdir(rainfall_path)
+#    pattern1='.pgrb2a.0p50.bc_06h'
+#    pattern2='.pgrb2a.0p50.bc_24h'
+#    for files in rain_files:
+#        if pattern2 in files:
+#            p = subprocess.call('wgrib2 %s -append -netcdf rainfall_24.nc'%files ,cwd=rainfall_path)
+#            os.remove(files)
+#        if pattern1 in files:
+#            p = subprocess.call('wgrib2 %s -append -netcdf rainfall_06.nc'%files ,cwd=rainfall_path)
+#            os.remove(files)
+    convert_rain_files(rainfall_path)

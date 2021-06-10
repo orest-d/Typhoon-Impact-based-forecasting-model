@@ -14,6 +14,7 @@ geopandas==0.6.1
 pybufrkit==0.2.17
 beautifulsoup4==4.8.0
 xarray==0.15.0
+rtree==0.9.7
 
 # climada requirement
 bottleneck>=1.3
