@@ -7,7 +7,7 @@ from tqdm import tqdm
 
 USE_WGET=False
 
-def download_file(url, output_path, cwd=None, use_wget=None, use_cached=True):
+def download_file(url, output_path, cwd=None, use_wget=None, use_cached=False):
     """Fetch url and store it in a file specified by output_path.
     The requests library is used by default, can be configured to use wget by seting use_wget parameter to True
     or similarly a global variable USE_WGET.
