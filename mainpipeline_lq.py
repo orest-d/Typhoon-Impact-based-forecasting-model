@@ -4,6 +4,7 @@ Created on Sat Oct 31 16:01:00 2020
 
 @author: ATeklesadik
 """
+from mainpipeline import Activetyphoon
 import sys
 import os
 import pandas as pd
@@ -37,20 +38,23 @@ from geopandas.tools import sjoin
 import geopandas as gpd
 import xarray as xr
 from pathlib import Path
+from liquer import *
+from liquer.context import Context
 
-decoder = Decoder()
+#decoder = Decoder() # TODO: Does not seem to be used
 ##path='C:/Users/ATeklesadik/OneDrive - Rode Kruis/Documents/documents/Typhoon-Impact-based-forecasting-model/'
 ##Path='home/fbf/'
-path = str(Path(__file__).parent.absolute())  # os.path.split(abspath(__file__))[0]
+
+@first_command
+def home_path():
+    return str(Path(__file__).parent.absolute())  # os.path.split(abspath(__file__))[0]
 
 #%%
-sys.path.insert(0, os.path.join(path,'lib'))
+sys.path.insert(0, os.path.join(home_path(),'lib'))
 os.chdir(path)
 
 from settings import fTP_LOGIN, fTP_PASSWORD, uCL_USERNAME, uCL_PASSWORD
-#from settings import *
 from secrets import *
-#from variables import *
  
 from climada.hazard import Centroids, TropCyclone,TCTracks
 from climada.hazard.tc_tracks import estimate_roci,estimate_rmw
@@ -58,86 +62,158 @@ from climada.hazard.tc_tracks_forecast import TCForecast
 from utility_fun import track_data_clean,Rainfall_data,Check_for_active_typhoon,Sendemail,ucl_data
 
 #%% check for active typhoons
-print('---------------------check for active typhoons---------------------------------')
-print(str(datetime.now()))
+@first_command
+def active_typhoons(remote_dir=None, typhoon=None, context=None):
+    if context is None:
+        context=Context()
 
-Activetyphoon=Check_for_active_typhoon.check_active_typhoon()
-#forecast_available_fornew_typhoon= False#'False'
+    if typhoon in (None,""):
+        print('---------------------check for active typhoons---------------------------------')
+        print(str(datetime.now()))
+        context.info("check for active typhoons")
+        Activetyphoon=Check_for_active_typhoon.check_active_typhoon()
+    else:
+        context.info(f"selected typhoon: {typhoon}")
+        Activetyphoon=[typhoon]
+    #forecast_available_fornew_typhoon= False#'False'
 
-if Activetyphoon==[]:
-  remote_dir='20210421120000' #for downloading test data otherwise set it to None
-  Activetyphoon=['SURIGAE']  #name of typhoon for test
-else:
-  #remote_dir=None #for downloading real time data
-  remote_dir=None #'20210518120000' #for downloading test data  Activetyphoon=['SURIGAE']
+    if Activetyphoon==[]:
+        if remote_dir in (None,""):
+            remote_dir='20210421120000' #for downloading test data otherwise set it to None
+        Activetyphoon=['SURIGAE']  #name of typhoon for test
+        context.info(f"No active typhoon, using {Activetyphoon} at {remote_dir}")
+    else:
+        #remote_dir=None #for downloading real time data
+        if remote_dir == "":
+            remote_dir=None #'20210518120000' #for downloading test data  Activetyphoon=['SURIGAE']
   
-print("currently active typhoon list= %s"%Activetyphoon)
+    print("currently active typhoon list= %s"%Activetyphoon)
+    context.info(f"currenly active typhoon list is {Activetyphoon}")
+    return dict(remote_dir=remote_dir, active_typhoons=Activetyphoon)
 
 
 #%% Download Rainfaall
 
+@command
+def forecast_setup(config):
+    path=config["path"]
+    Alternative_data_point=(datetime.strptime(datetime.now().strftime("%Y%m%d%H"), "%Y%m%d%H")-timedelta(hours=24)).strftime("%Y%m%d")
+        
+    Input_folder=os.path.join(path,'forecast/Input/%s/Input/'%(datetime.now().strftime("%Y%m%d%H")))
+    Output_folder=os.path.join(path,'forecast/Output/%s/Output/'%(datetime.now().strftime("%Y%m%d%H")))
 
+    if not os.path.exists(Input_folder):
+        os.makedirs(Input_folder)
+    if not os.path.exists(Output_folder):
+        os.makedirs(Output_folder)   
+    return dict(
+        alternative_data_point = Alternative_data_point,
+        input_folder = Input_folder,
+        output_folder = Output_folder,
+        **config
+    )
 
-Alternative_data_point=(datetime.strptime(datetime.now().strftime("%Y%m%d%H"), "%Y%m%d%H")-timedelta(hours=24)).strftime("%Y%m%d")
-     
-Input_folder=os.path.join(path,'forecast/Input/%s/Input/'%(datetime.now().strftime("%Y%m%d%H")))
-Output_folder=os.path.join(path,'forecast/Output/%s/Output/'%(datetime.now().strftime("%Y%m%d%H")))
+@first_command
+def basic_config():
+    return dict(
+        path = home_path(),
+        uCL_USERNAME=uCL_USERNAME,
+        uCL_PASSWORD=uCL_PASSWORD,
+        admin_shp_path = str((Path(home_path()) / "data-raw" / "phl_admin3_simpl2.shp") .absolute())
+    )
 
-if not os.path.exists(Input_folder):
-    os.makedirs(Input_folder)
-if not os.path.exists(Output_folder):
-    os.makedirs(Output_folder)   
-
-
+@command
+def download_rainfall(config, skip_nomads_download=False, context=None):
+    if context is None:
+        context=Context()
 #NOAA rainfall
-# Rainfall_data.download_rainfall_nomads(Input_folder,path,Alternative_data_point)
-try:
-    ucl_data.create_ucl_metadata(path,uCL_USERNAME,uCL_PASSWORD)
-    ucl_data.process_ucl_data(path,Input_folder,uCL_USERNAME,uCL_PASSWORD)
+    Input_folder = config["input_folder"]
+    path = config["path"]
+    Alternative_data_point = config["alternative_data_point"]
+    uCL_USERNAME = config["uCL_USERNAME"]
+    uCL_PASSWORD = config["uCL_PASSWORD"]
 
-except:
-    pass
+    if not skip_nomads_download:
+        context.info("download rainfall nomads")
+        Rainfall_data.download_rainfall_nomads(Input_folder,path,Alternative_data_point)
+    try:
+        ucl_data.create_ucl_metadata(path,uCL_USERNAME,uCL_PASSWORD)
+        ucl_data.process_ucl_data(path,Input_folder,uCL_USERNAME,uCL_PASSWORD)
 
+    except:
+        pass
 
+    return config
 
-##Create grid points to calculate Winfield
+_CENTROID = None
+@first_command(volatile=True)
+def grid_points_centroid():
+    global _CENTROID
+    ##Create grid points to calculate Winfield
+    if _CENTROID is None:
+        cent = Centroids()
+        cent.set_raster_from_pnt_bounds((118,6,127,19), res=0.05)
+        cent.check()
+        _CENTROID = cent
+    return _CENTROID
 
-cent = Centroids()
-cent.set_raster_from_pnt_bounds((118,6,127,19), res=0.05)
-cent.check()
+@command
+def plot_centroid(cent):
+    from matplotlib.pyplot import gcf
+    ########################################## uncomment the following line to see intermidiate results
+    cent.plot()
+    ####
+    return gcf()
 
-########################################## uncomment the following line to see intermidiate results
-cent.plot()
-####
+@command
+def to_cent_df(cent):
+    df = pd.DataFrame(data=cent.coord)
+    df["centroid_id"] = "id"+(df.index).astype(str)  
+    centroid_idx=df["centroid_id"].values
+    ncents = cent.size
+    df=df.rename(columns={0: "lat", 1: "lon"})
+    return df
 
-admin_shp_path = str((Path(path) / "data-raw" / "phl_admin3_simpl2.shp") .absolute())
-print (f"Admin shp path: {admin_shp_path}")
-#admin=gpd.read_file("C:/Users/ATeklesadik/OneDrive - Rode Kruis/Documents/documents/Typhoon-Impact-based-forecasting-model/data-raw/phl_admin3_simpl2.shp")
-admin=gpd.read_file(admin_shp_path)
-df = pd.DataFrame(data=cent.coord)
-df["centroid_id"] = "id"+(df.index).astype(str)  
-centroid_idx=df["centroid_id"].values
-ncents = cent.size
-df=df.rename(columns={0: "lat", 1: "lon"})
+@first_command
+def cent_df(cent):
+    return to_cent_df(grid_points_centroid())
 
-df = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df.lon, df.lat))
-#df.to_crs({'init': 'epsg:4326'})
-df.crs = {'init': 'epsg:4326'}
-df_admin = sjoin(df, admin, how="left")
-df_admin=df_admin.dropna()
+@command
+def get_admin(config):
+    admin_shp_path = config["admin_shp_path"]
+    print (f"Admin shp path: {admin_shp_path}")
+    #admin=gpd.read_file("C:/Users/ATeklesadik/OneDrive - Rode Kruis/Documents/documents/Typhoon-Impact-based-forecasting-model/data-raw/phl_admin3_simpl2.shp")
+    admin=gpd.read_file(admin_shp_path)
+    return admin
+
+@command
+def get_admin_with_cent(config):
+    admin = get admin(config)
+    df=cent_df()
+
+    df = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df.lon, df.lat))
+    #df.to_crs({'init': 'epsg:4326'})
+    df.crs = {'init': 'epsg:4326'}
+    df_admin = sjoin(df, admin, how="left")
+    df_admin=df_admin.dropna()
+    return df_admin
 
 #%% Download ECMWF data 
 
-bufr_files = TCForecast.fetch_bufr_ftp(remote_dir=remote_dir)
-fcast = TCForecast()
-fcast.fetch_ecmwf(files=bufr_files)
+@command(volatile=True)
+def ecmwf_fcast(config):
+    remote_dir = config["remote_dir"]
+    Activetyphoon = config["active_typhoons"]  
+    bufr_files = TCForecast.fetch_bufr_ftp(remote_dir=remote_dir)
+    fcast = TCForecast()
+    fcast.fetch_ecmwf(files=bufr_files)
 
-#%% filter for active typhoons (or example typhoon) 
+    #%% filter for active typhoons (or example typhoon) 
 
-# filter tracks with name of current typhoons and drop tracks with only one timestep
-fcast.data = [tr for tr in fcast.data if tr.name in Activetyphoon]
-fcast.data = [tr for tr in fcast.data if tr.time.size>1]
-
+    # filter tracks with name of current typhoons and drop tracks with only one timestep
+    fcast.data = [tr for tr in fcast.data if tr.name in Activetyphoon]
+    fcast.data = [tr for tr in fcast.data if tr.time.size>1]
+    return fcast
 
 
 #typhhon_df.to_csv('//TyphoonModel/Typhoon-Impact-based-forecasting-model/forecast/intensity.csv')

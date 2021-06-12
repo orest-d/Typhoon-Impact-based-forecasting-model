@@ -4,6 +4,7 @@ ARG DEBIAN_FRONTEND=noninteractive
 # Set up basics
 RUN apt-get update
 RUN apt-get install -y software-properties-common nano sudo wget
+RUN apt-get install -y libhdf5-dev libnetcdf-dev
 RUN apt-get install -y python3-pip
 RUN apt-get update && apt-get install -y libspatialindex-dev
 
@@ -16,11 +17,13 @@ RUN mkdir --parents /home/fbf/
 WORKDIR /home/fbf/
 
 # prerequisite script for R-package 'tmap'
-COPY tmap_ubuntu_installation_18.sh  /home/fbf/
-RUN chmod +x tmap_ubuntu_installation_18.sh && bash -c "./tmap_ubuntu_installation_18.sh"
+# COPY tmap_ubuntu_installation_18.sh  /home/fbf/
+# RUN chmod +x tmap_ubuntu_installation_18.sh && bash -c "./tmap_ubuntu_installation_18.sh"
 
-COPY ncdf4_1.13.tar.gz  /home/fbf/
-R CMD INSTALL /home/fbf/ncdf4_1.9.tar.gz
+# COPY ncdf4_1.13.tar.gz  /home/fbf/
+# RUN wget https://cran.r-project.org/src/contrib/Archive/ncdf4/ncdf4_1.10.tar.gz -O /home/fbf/ncdf4_1.10.tar.gz
+RUN wget https://cran.r-project.org/src/contrib/Archive/ncdf4/ncdf4_1.13.tar.gz -O /home/fbf/ncdf4_1.13.tar.gz
+# R CMD INSTALL /home/fbf/ncdf4_1.9.tar.gz
 
 # install R and R-packages
 RUN apt install -y apt-transport-https software-properties-common
@@ -31,8 +34,10 @@ RUN apt-get install -y r-base
 
 # Set ...
 RUN mkdir ~/.R
-COPY Makevars /home/fbf/
-RUN cp /home/fbf/Makevars ~/.R/Makevars
+# COPY Makevars /home/fbf/
+# RUN cp /home/fbf/Makevars ~/.R/Makevars
+
+RUN R CMD INSTALL /home/fbf/ncdf4_1.13.tar.gz
 
 # Install R-packages
 RUN Rscript -e "install.packages('stringr', repos='http://cran.us.r-project.org')"
@@ -69,6 +74,13 @@ RUN Rscript -e "install.packages('ncdf4', repos='http://cran.us.r-project.org')"
 # install python dependencies
 COPY requirements.txt /home/fbf/
 RUN pip install -r requirements.txt
+
+# install wgrib2
+RUN wget https://ftp.cpc.ncep.noaa.gov/wd51we/wgrib2/wgrib2.tgz.v3.0.2 -O wgrib2.tgz
+RUN tar -xvzf wgrib2.tgz
+
+RUN cd grib2;export CC=gcc;export FC=gfortran;make;cd ..
+COPY grib2/wgrib2/wgrib2 /home/fbf/wgrib2
 
 # set up cronjob
 # COPY crontab /etc/cron.d/crontab
