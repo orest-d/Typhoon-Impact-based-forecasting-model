@@ -19,7 +19,7 @@ Rscript -e "install.packages('rgdal', repos='http://cran.us.r-project.org', lib=
 Rscript -e "install.packages('ranger', repos='http://cran.us.r-project.org', lib=Sys.getenv('R_LIBS_USER'))"
 Rscript -e "install.packages('caret', repos='http://cran.us.r-project.org', lib=Sys.getenv('R_LIBS_USER'))"
 Rscript -e "install.packages('randomForest', repos='http://cran.us.r-project.org', lib=Sys.getenv('R_LIBS_USER'))"
-Rscript -e "install.packages('rlang', repos='http://cran.us.r-project.org', lib= ys.getenv('R_LIBS_USER'))"
+Rscript -e "install.packages('rlang', repos='http://cran.us.r-project.org', lib=Sys.getenv('R_LIBS_USER'))"
 Rscript -e "install.packages('RFmarkerDetector', repos='http://cran.us.r-project.org', lib=Sys.getenv('R_LIBS_USER'))"
 Rscript -e "install.packages('AUCRF', repos='http://cran.us.r-project.org', lib=Sys.getenv('R_LIBS_USER'))"
 Rscript -e "install.packages('kernlab', repos='http://cran.us.r-project.org', lib=Sys.getenv('R_LIBS_USER'))"
@@ -33,3 +33,4 @@ Rscript -e "install.packages('readr', repos='http://cran.us.r-project.org', lib=
 Rscript -e "install.packages('rNOMADS', repos='http://cran.us.r-project.org', lib=Sys.getenv('R_LIBS_USER'))"
 Rscript -e "install.packages('ncdf4', repos='http://cran.us.r-project.org', lib=Sys.getenv('R_LIBS_USER'))"
 Rscript -e "install.packages('huxtable', repos='http://cran.us.r-project.org', lib=Sys.getenv('R_LIBS_USER'))"
+Rscript -e "install.packages('xgboost', repos='http://cran.us.r-project.org', lib=Sys.getenv('R_LIBS_USER'))"
