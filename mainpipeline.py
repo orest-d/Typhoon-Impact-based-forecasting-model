@@ -273,10 +273,12 @@ def automation_sript(path):
         #############################################################
         os.chdir(path)
         
+        print (f"path: {path}")
+        print (f"cwd:  {os.getcwd()}")
         if platform == "linux" or platform == "linux2": #check if running on linux or windows os
             # linux
             try:
-                p = subprocess.check_call(["Rscript", "run_model_v2.R", str(rainfall_error)])
+                p = subprocess.check_call(["Rscript", "run_model_V2.R", str(rainfall_error)])
             except subprocess.CalledProcessError as e:
                 raise ValueError(str(e))
         elif platform == "win32": #if OS is windows edit the path for Rscript

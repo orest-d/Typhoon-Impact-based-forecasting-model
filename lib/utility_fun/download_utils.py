@@ -7,7 +7,7 @@ from tqdm import tqdm
 
 USE_WGET=False
 
-def download_file(url, output_path, cwd=None, use_wget=None, use_cached=False):
+def download_file(url, output_path, cwd=None, use_wget=None, use_cached=True):
     """Fetch url and store it in a file specified by output_path.
     The requests library is used by default, can be configured to use wget by seting use_wget parameter to True
     or similarly a global variable USE_WGET.
@@ -81,7 +81,7 @@ def convert_rain_files(rainfall_path, remove_original_files=False):
     pattern1='.pgrb2a.0p50.bc_06h'
     pattern2='.pgrb2a.0p50.bc_24h'
 
-    for files in rain_files:
+    for files in sorted(rain_files):
         if pattern2 in files:
             convert_grib2_to_netcdf(files, join(rainfall_path, "rainfall_24.nc"))
 #            p = subprocess.call('wgrib2 %s -append -netcdf rainfall_24.nc'%files ,cwd=rainfall_path)

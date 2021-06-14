@@ -221,6 +221,112 @@ def ecmwf_fcast(config):
 
 #%%#Download rainfall (old pipeline)
 
+def prepare_calculation(typhoons):
+    fname=open(os.path.join(path,'forecast/Input/',"typhoon_info_for_model.csv"),'w')
+    fname.write('source,filename,event,time'+'\n')            
+    line_='Rainfall,'+'%sRainfall' % Input_folder +',' +typhoons+','+ datetime.now().strftime("%Y%m%d%H")  #StormName #
+    fname.write(line_+'\n')
+    line_='Output_folder,'+'%s' % Output_folder +',' +typhoons+',' + datetime.now().strftime("%Y%m%d%H")  #StormName #
+    #line_='Rainfall,'+'%sRainfall/' % Input_folder +','+ typhoons + ',' + datetime.now().strftime("%Y%m%d%H") #StormName #
+    fname.write(line_+'\n')
+
+    #typhoons='SURIGAE'  # to run it manually for any typhoon 
+                # select windspeed for HRS model
+                
+    fcast.data1=[tr for tr in fcast.data if tr.name==typhoons]
+    tr_HRS=[tr for tr in fcast.data1 if (tr.is_ensemble=='False') & (tr.ensemble_number==1)]
+    HRS_SPEED=(tr_HRS[0].max_sustained_wind.values/0.84).tolist()  ############# 0.84 is conversion factor for ECMWF 10MIN TO 1MIN AVERAGE
+    
+    dfff=tr_HRS[0].to_dataframe()
+    dfff[['VMAX','LAT','LON']]=dfff[['max_sustained_wind','lon','lat']]
+    dfff['YYYYMMDDHH']=dfff.index.values
+    dfff[['YYYYMMDDHH','VMAX','LAT','LON']].to_csv(os.path.join(Input_folder,'ecmwf_hrs_track.csv'), index=False)
+    
+    
+    line_='ecmwf,'+'%secmwf_hrs_track.csv' % Input_folder+ ',' +typhoons+','+ datetime.now().strftime("%Y%m%d%H")   #StormName #
+    #line_='Rainfall,'+'%sRainfall/' % Input_folder +','+ typhoons + ',' + datetime.now().strftime("%Y%m%d%H") #StormName #
+    fname.write(line_+'\n')
+    
+    # Adjust track time step
+    
+    data_forced=[tr.where(tr.time <= max(tr_HRS[0].time.values),drop=True) for tr in fcast.data1]
+        
+    data_forced = [track_data_clean.track_data_force_HRS(tr,HRS_SPEED) for tr in data_forced] # forced with HRS windspeed
+    
+    
+    
+    fcast.data = [track_data_clean.track_data_clean(tr) for tr in data_forced] # taking speed of ENS
+    # interpolate to 3h steps from the original 6h
+    fcast.equal_timestep(3)
+
+    
+    # calculate windfields for each ensamble
+    threshold=0            #(threshold to filter dataframe /reduce data )
+    df = pd.DataFrame(data=cent.coord)
+    df["centroid_id"] = "id"+(df.index).astype(str)  
+    centroid_idx=df["centroid_id"].values
+    ncents = cent.size
+    df=df.rename(columns={0: "lat", 1: "lon"})
+    
+    #calculate wind field for each ensamble members 
+    list_intensity=[]
+    distan_track=[]
+    for tr in fcast.data:
+        print(tr.name)
+        track = TCTracks() 
+        typhoon = TropCyclone()
+        track.data=[tr]
+        typhoon.set_from_tracks(track, cent, store_windfields=True)
+        windfield=typhoon.windfields
+        nsteps = windfield[0].shape[0]
+        centroid_id = np.tile(centroid_idx, nsteps)
+        intensity_3d = windfield[0].toarray().reshape(nsteps, ncents, 2)
+        intensity = np.linalg.norm(intensity_3d, axis=-1).ravel()
+        
+        timesteps = np.repeat(tr.time.values, ncents)
+        timesteps = timesteps.reshape((nsteps, ncents)).ravel()
+        inten_tr = pd.DataFrame({
+                'centroid_id': centroid_id,
+                'value': intensity,
+                'timestamp': timesteps,})
+        inten_tr = inten_tr[inten_tr.value > threshold]
+        inten_tr['storm_id'] = tr.sid
+        inten_tr['ens_id'] =tr.sid+'_'+str(tr.ensemble_number)
+        inten_tr['name'] = tr.name
+        list_intensity.append(inten_tr)
+        distan_track1=[]
+        for index, row in df.iterrows():
+            dist=np.min(np.sqrt(np.square(tr.lat.values-row['lat'])+np.square(tr.lon.values-row['lon'])))
+            distan_track1.append(dist*111)
+            print(f'centroid_id:   {len(centroid_idx)}  {centroid_idx}')
+            print(f'distan_track1: {len(distan_track1)}   {distan_track1}')
+            dist_tr = pd.DataFrame({'centroid_id': centroid_idx,'value': distan_track1})
+            dist_tr['storm_id'] = tr.sid
+            dist_tr['name'] = tr.name
+            dist_tr['ens_id'] =tr.sid+'_'+str(tr.ensemble_number)
+            distan_track.append(dist_tr)                
+    df_intensity = pd.concat(list_intensity)
+    df_intensity=pd.merge(df_intensity, df_admin, how='outer', on='centroid_id')
+    df_intensity=df_intensity.dropna()
+    
+    df_intensity_=df_intensity.groupby(['adm3_pcode','ens_id'],as_index=False).agg({"value":['count', 'max']}) 
+    # rename columns
+    df_intensity_.columns = [x for x in ['adm3_pcode','storm_id','value_count','v_max']] 
+    distan_track1= pd.concat(distan_track)
+    distan_track1=pd.merge(distan_track1, df_admin, how='outer', on='centroid_id')
+    distan_track1=distan_track1.dropna()
+    
+    distan_track1=distan_track1.groupby(['adm3_pcode','name','ens_id'],as_index=False).agg({'value':'min'}) 
+    distan_track1.columns = [x for x in ['adm3_pcode','name','storm_id','dis_track_min']]#join_left_df_.columns.ravel()] 
+    typhhon_df = pd.merge(df_intensity_, distan_track1,  how='left', on=['adm3_pcode','storm_id']) 
+
+    typhhon_df.to_csv(os.path.join(Input_folder,'windfield.csv'), index=False)
+
+    line_='windfield,'+'%swindfield.csv' % Input_folder+ ',' +typhoons+','+ datetime.now().strftime("%Y%m%d%H")   #StormName #
+    #line_='Rainfall,'+'%sRainfall/' % Input_folder +','+ typhoons + ',' + datetime.now().strftime("%Y%m%d%H") #StormName #
+    fname.write(line_+'\n')
+    fname.close()
+
 def automation_sript(path):
     print('---------------------AUTOMATION SCRIPT STARTED---------------------------------')
     print(str(datetime.now()))
